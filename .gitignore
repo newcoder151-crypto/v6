@@ -1,0 +1,6 @@
+server/ai/venv
+node_modules/
+dist/
+build/
+.env
+node_modules/
