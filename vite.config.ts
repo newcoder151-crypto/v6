@@ -9,12 +9,17 @@ export default defineConfig(({ mode }) => ({
     hmr: { overlay: false },
     proxy: {
       "/api": { target: "http://localhost:3001", changeOrigin: true },
-      "/ws":  { target: "ws://localhost:3001",   ws: true },
+      "/ws": { target: "ws://localhost:3001", ws: true },
     },
   },
   plugins: [react()],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "@tanstack/react-query",
+    ],
   },
 }));

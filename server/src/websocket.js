@@ -1,23 +1,26 @@
-const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
+const WebSocket = require("ws");
+const jwt = require("jsonwebtoken");
 
 let wss = null;
 const clients = new Map(); // userId -> Set<ws>
 
 function setupWebSocket(server) {
-  wss = new WebSocket.Server({ server, path: '/ws' });
+  wss = new WebSocket.Server({ server, path: "/ws" });
 
-  wss.on('connection', (ws, req) => {
+  wss.on("connection", (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const token = url.searchParams.get('token');
+    const token = url.searchParams.get("token");
 
     if (!token) {
-      ws.close(4001, 'Token required');
+      ws.close(4001, "Token required");
       return;
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-me-in-production');
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || "change-me-in-production",
+      );
       ws.userId = decoded.sub;
       ws.isAlive = true;
 
@@ -28,23 +31,32 @@ function setupWebSocket(server) {
       console.log(`[WS] Client connected: ${decoded.email}`);
 
       // Send welcome
-      ws.send(JSON.stringify({
-        type: 'connection.established',
-        data: { userId: decoded.sub, timestamp: new Date().toISOString() },
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "connection.established",
+          data: { userId: decoded.sub, timestamp: new Date().toISOString() },
+        }),
+      );
 
-      ws.on('pong', () => { ws.isAlive = true; });
+      ws.on("pong", () => {
+        ws.isAlive = true;
+      });
 
-      ws.on('message', (message) => {
+      ws.on("message", (message) => {
         try {
           const msg = JSON.parse(message.toString());
           handleClientMessage(ws, msg);
         } catch (e) {
-          ws.send(JSON.stringify({ type: 'error', data: { message: 'Invalid JSON' } }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Invalid JSON" },
+            }),
+          );
         }
       });
 
-      ws.on('close', () => {
+      ws.on("close", () => {
         console.log(`[WS] Client disconnected: ${decoded.email}`);
         const userClients = clients.get(decoded.sub);
         if (userClients) {
@@ -53,7 +65,7 @@ function setupWebSocket(server) {
         }
       });
     } catch (err) {
-      ws.close(4002, 'Invalid token');
+      ws.close(4002, "Invalid token");
     }
   });
 
@@ -66,29 +78,41 @@ function setupWebSocket(server) {
     });
   }, 30000);
 
-  wss.on('close', () => clearInterval(interval));
+  wss.on("close", () => clearInterval(interval));
 
-  console.log('[WS] WebSocket server initialized');
+  console.log("[WS] WebSocket server initialized");
 }
 
 function handleClientMessage(ws, msg) {
   switch (msg.type) {
-    case 'subscribe.camera':
+    case "subscribe.camera":
       ws.subscribedCameras = ws.subscribedCameras || new Set();
       ws.subscribedCameras.add(msg.data?.cameraId);
-      ws.send(JSON.stringify({ type: 'subscribed', data: { camera: msg.data?.cameraId } }));
+      ws.send(
+        JSON.stringify({
+          type: "subscribed",
+          data: { camera: msg.data?.cameraId },
+        }),
+      );
       break;
 
-    case 'unsubscribe.camera':
+    case "unsubscribe.camera":
       ws.subscribedCameras?.delete(msg.data?.cameraId);
       break;
 
-    case 'ping':
-      ws.send(JSON.stringify({ type: 'pong', data: { timestamp: Date.now() } }));
+    case "ping":
+      ws.send(
+        JSON.stringify({ type: "pong", data: { timestamp: Date.now() } }),
+      );
       break;
 
     default:
-      ws.send(JSON.stringify({ type: 'error', data: { message: `Unknown message type: ${msg.type}` } }));
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          data: { message: `Unknown message type: ${msg.type}` },
+        }),
+      );
   }
 }
 
@@ -118,7 +142,10 @@ function broadcastToCamera(cameraId, message) {
   if (!wss) return;
   const payload = JSON.stringify(message);
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN && client.subscribedCameras?.has(cameraId)) {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      client.subscribedCameras?.has(cameraId)
+    ) {
       client.send(payload);
     }
   });
@@ -127,14 +154,16 @@ function broadcastToCamera(cameraId, message) {
 module.exports = { setupWebSocket, broadcast, sendToUser, broadcastToCamera };
 
 // Push NVR core health to all clients every 30s
-const axios = require('axios');
+const axios = require("axios");
 function startNvrHealthPush() {
-  const NVR_CORE_URL = process.env.NVR_CORE_URL || 'http://localhost:8080';
+  const NVR_CORE_URL = process.env.NVR_CORE_URL || "http://localhost:8080";
   setInterval(async () => {
     if (!wss || wss.clients.size === 0) return;
     try {
-      const r = await axios.get(`${NVR_CORE_URL}/api/v1/system/status`, { timeout: 3000 });
-      broadcast({ type: 'nvr.health', data: r.data });
+      const r = await axios.get(`${NVR_CORE_URL}/api/v1/system/status`, {
+        timeout: 3000,
+      });
+      broadcast({ type: "nvr.health", data: r.data });
     } catch {}
   }, 30000);
 }
